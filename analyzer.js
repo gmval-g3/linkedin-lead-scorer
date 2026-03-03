@@ -302,13 +302,8 @@ class LinkedInAnalyzer {
         }
       }
 
-      // Try extracting title/company from message content
-      if (!contact.title) {
-        contact.title = this.extractTitleFromMessages(contact);
-      }
-      if (!contact.company) {
-        contact.company = this.extractCompanyFromMessages(contact);
-      }
+      // Title/company only populated via Connections CSV enrichment
+      // Message-based extraction disabled (too many false positives)
     }
   }
 
@@ -489,8 +484,9 @@ class LinkedInAnalyzer {
   }
 
   rankContacts() {
+    const EXCLUDED_NAMES = ['linkedin member', 'linkedin user', ''];
     this.results = Array.from(this.contacts.values())
-      .filter((c) => c.totalScore > 0)
+      .filter((c) => c.totalScore > 0 && !EXCLUDED_NAMES.includes(c.name.toLowerCase().trim()))
       .sort((a, b) => b.totalScore - a.totalScore);
   }
 
@@ -588,7 +584,7 @@ class LinkedInAnalyzer {
     );
   }
 
-  exportCSV(contacts) {
+  exportCSV(contacts, tagsFn) {
     const data = contacts || this.results;
     const headers = [
       'Rank',
@@ -604,6 +600,7 @@ class LinkedInAnalyzer {
       'Messages Received',
       'Last Contact',
       'Conversations',
+      'Tags',
     ];
 
     const rows = data.map((c, i) => [
@@ -622,6 +619,7 @@ class LinkedInAnalyzer {
         ? c.lastMessageDate.toISOString().split('T')[0]
         : '',
       c.conversationIds.size,
+      tagsFn ? (tagsFn(c.name.toLowerCase()) || []).join('; ') : '',
     ]);
 
     const csvContent = [headers, ...rows]
